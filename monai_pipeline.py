@@ -1,172 +1,216 @@
 from kfp import dsl
 from kfp import compiler
-from kfp.dsl import Output, Input, Model, Metrics
+from kfp.dsl import Output, Model, Metrics
 
 @dsl.component(
     base_image="phuochovan/monai-training:v3"
 )
-def train_monai_model(
+def train_and_evaluate_model(
     epochs: int,
     batch_size: int,
     model_output: Output[Model],
     metrics_output: Output[Metrics]
 ):
-    """Component to train MONAI model"""
-    import subprocess
+    """Train and evaluate MONAI model with configurable parameters"""
     import os
-    import shutil
     import sys
+    import torch
+    import glob
+    from monai.data import Dataset
+    from monai.transforms import (
+        Compose, LoadImaged, EnsureChannelFirstd, 
+        ScaleIntensityd, RandRotate90d, RandFlipd, ToTensord
+    )
+    from monai.networks.nets import DenseNet121
+    from torch.utils.data import DataLoader
     
-    # Check if script exists
-    print("=" * 60)
-    print("Checking environment...")
-    print("=" * 60)
+    print(f"\n{'='*60}")
+    print(f"MONAI Training Pipeline")
+    print(f"{'='*60}")
+    print(f"Parameters: epochs={epochs}, batch_size={batch_size}")
+    print(f"{'='*60}\n")
     
-    if os.path.exists("/app/train_simple.py"):
-        print("✓ Training script found at /app/train_simple.py")
-    else:
-        print("✗ Training script NOT found!")
-        sys.exit(1)
+    # Setup
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    data_dir = "/app/data/MedNIST"
     
-    if os.path.exists("/app/data/MedNIST"):
-        print("✓ Data directory found at /app/data/MedNIST")
-        classes = os.listdir("/app/data/MedNIST")
-        print(f"  Classes: {classes}")
-    else:
-        print("✗ Data directory NOT found!")
-        sys.exit(1)
+    # Get class names
+    class_names = sorted([x for x in os.listdir(data_dir) 
+                         if os.path.isdir(os.path.join(data_dir, x))])
     
-    # Run training with better error handling
-    print("\n" + "=" * 60)
-    print("Starting MONAI training...")
-    print("=" * 60)
+    # Prepare data
+    train_data = []
+    val_data = []
     
-    cmd = ["python", "/app/train_simple.py"]
-    
-    try:
-        result = subprocess.run(
-            cmd, 
-            check=False,  # Don't raise exception immediately
-            capture_output=True, 
-            text=True,
-            cwd="/app"
-        )
+    for i, class_name in enumerate(class_names):
+        class_dir = os.path.join(data_dir, class_name)
+        class_images = glob.glob(os.path.join(class_dir, "*.jpeg"))[:100]
         
-        # Print stdout
-        if result.stdout:
-            print("STDOUT:")
-            print(result.stdout)
+        split_idx = int(0.8 * len(class_images))
         
-        # Print stderr
-        if result.stderr:
-            print("STDERR:")
-            print(result.stderr)
-        
-        # Check return code
-        if result.returncode != 0:
-            print(f"\n✗ Training failed with exit code: {result.returncode}")
-            sys.exit(1)
-        
-        print("\n✓ Training completed successfully!")
-        
-    except Exception as e:
-        print(f"✗ Exception occurred: {str(e)}")
-        sys.exit(1)
+        for img in class_images[:split_idx]:
+            train_data.append({"image": img, "label": i})
+        for img in class_images[split_idx:]:
+            val_data.append({"image": img, "label": i})
     
-    # Copy model to output
-    print("\n" + "=" * 60)
-    print("Saving model...")
-    print("=" * 60)
+    print(f"Training samples: {len(train_data)}")
+    print(f"Validation samples: {len(val_data)}\n")
     
-    if os.path.exists("/app/best_model.pth"):
-        os.makedirs(os.path.dirname(model_output.path), exist_ok=True)
-        shutil.copy("/app/best_model.pth", model_output.path)
-        model_output.uri = model_output.path
-        file_size = os.path.getsize(model_output.path)
-        print(f"✓ Model saved to: {model_output.path}")
-        print(f"  Size: {file_size / (1024*1024):.2f} MB")
-    else:
-        print("✗ Model file not found at /app/best_model.pth")
-        print("Available files in /app:")
-        for f in os.listdir("/app"):
-            print(f"  - {f}")
-        sys.exit(1)
+    # Transforms
+    train_transforms = Compose([
+        LoadImaged(keys=["image"]),
+        EnsureChannelFirstd(keys=["image"]),
+        ScaleIntensityd(keys=["image"]),
+        RandRotate90d(keys=["image"], prob=0.5, spatial_axes=(0, 1)),
+        RandFlipd(keys=["image"], prob=0.5),
+        ToTensord(keys=["image"])
+    ])
     
-    # Log metrics
+    val_transforms = Compose([
+        LoadImaged(keys=["image"]),
+        EnsureChannelFirstd(keys=["image"]),
+        ScaleIntensityd(keys=["image"]),
+        ToTensord(keys=["image"])
+    ])
+    
+    # Datasets and loaders
+    train_ds = Dataset(data=train_data, transform=train_transforms)
+    val_ds = Dataset(data=val_data, transform=val_transforms)
+    
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
+    
+    # Model
+    model = DenseNet121(
+        spatial_dims=2, 
+        in_channels=1, 
+        out_channels=len(class_names)
+    ).to(device)
+    
+    loss_function = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    
+    # Training
+    print("Training started...\n")
+    best_val_acc = 0
+    
+    for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0
+        
+        for batch_data in train_loader:
+            inputs = batch_data["image"].to(device)
+            labels = batch_data["label"].to(device)
+            
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = loss_function(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()
+        
+        avg_loss = epoch_loss / len(train_loader)
+        
+        # Validation
+        model.eval()
+        val_correct = 0
+        val_total = 0
+        
+        with torch.no_grad():
+            for val_batch in val_loader:
+                val_inputs = val_batch["image"].to(device)
+                val_labels = val_batch["label"].to(device)
+                val_outputs = model(val_inputs)
+                _, predicted = torch.max(val_outputs, 1)
+                val_total += val_labels.size(0)
+                val_correct += (predicted == val_labels).sum().item()
+        
+        val_acc = 100 * val_correct / val_total
+        
+        print(f"Epoch [{epoch+1}/{epochs}] Loss: {avg_loss:.4f} | Val Acc: {val_acc:.2f}%")
+        
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(model.state_dict(), "/app/best_model.pth")
+    
+    print(f"\n{'='*60}")
+    print(f"Training completed!")
+    print(f"Best Validation Accuracy: {best_val_acc:.2f}%")
+    print(f"{'='*60}\n")
+    
+    # Save model output
+    import shutil
+    os.makedirs(os.path.dirname(model_output.path), exist_ok=True)
+    shutil.copy("/app/best_model.pth", model_output.path)
+    model_output.uri = model_output.path
+    
+    # Detailed per-class evaluation
+    print("Per-class accuracy:\n")
+    model.eval()
+    class_correct = [0] * len(class_names)
+    class_total = [0] * len(class_names)
+    
+    with torch.no_grad():
+        for val_batch in val_loader:
+            val_inputs = val_batch["image"].to(device)
+            val_labels = val_batch["label"].to(device)
+            val_outputs = model(val_inputs)
+            _, predicted = torch.max(val_outputs, 1)
+            
+            for label, pred in zip(val_labels, predicted):
+                label_item = label.item()
+                class_total[label_item] += 1
+                if label_item == pred.item():
+                    class_correct[label_item] += 1
+    
+    for i, class_name in enumerate(class_names):
+        if class_total[i] > 0:
+            class_acc = 100 * class_correct[i] / class_total[i]
+            print(f"  {class_name:12s}: {class_acc:6.2f}%")
+    
+    # Log essential metrics to Kubeflow
+    metrics_output.log_metric("validation_accuracy", round(best_val_acc, 2))
     metrics_output.log_metric("epochs", epochs)
     metrics_output.log_metric("batch_size", batch_size)
     
-    print("\n" + "=" * 60)
-    print("✓ Training component completed!")
-    print("=" * 60)
-
-@dsl.component(
-    base_image="python:3.10-slim"
-)
-def evaluate_model(
-    metrics_output: Output[Metrics]
-):
-    """Component to evaluate model"""
-    import os
-    
-    print("=" * 60)
-    print("Model Evaluation")
-    print("=" * 60)
-    
-    # Simplified evaluation without model input for now
-    # In production, you would load the model and run actual evaluation
-    
-    print("✓ Evaluation completed successfully!")
-    print("\nSimulated Metrics:")
-    print("  - Accuracy: 85.5%")
-    print("  - AUC: 0.90")
-    
-    # Log metrics
-    metrics_output.log_metric("evaluation_status", 1.0)
-    metrics_output.log_metric("simulated_accuracy", 85.5)
-    metrics_output.log_metric("simulated_auc", 0.90)
-    
-    print("\n" + "=" * 60)
-    print("✓ Evaluation component completed!")
-    print("=" * 60)
+    print(f"\n{'='*60}")
+    print(f"✓ Pipeline completed successfully!")
+    print(f"{'='*60}\n")
 
 @dsl.pipeline(
-    name="MONAI Medical Image Classification Pipeline",
-    description="End-to-end pipeline for medical image classification using MONAI"
+    name="MONAI Medical Image Classification",
+    description="Train and evaluate medical image classification model"
 )
 def monai_training_pipeline(
-    epochs: int = 5,
+    epochs: int = 3,
     batch_size: int = 32
 ):
-    """Main pipeline definition"""
+    """
+    Pipeline to train MONAI model on medical images.
     
-    # Step 1: Training task
-    train_task = train_monai_model(
+    Args:
+        epochs: Number of training epochs (default: 3)
+        batch_size: Training batch size (default: 32)
+    """
+    
+    train_and_evaluate_model(
         epochs=epochs,
         batch_size=batch_size
     )
-    
-    # Step 2: Evaluation task
-    eval_task = evaluate_model()
-    
-    # Set dependency
-    eval_task.after(train_task)
 
-# Main execution
+# Compile pipeline
 if __name__ == "__main__":
-    print("Compiling Kubeflow Pipeline...")
-    
     compiler.Compiler().compile(
         pipeline_func=monai_training_pipeline,
         package_path="monai_pipeline.yaml"
     )
-    
-    print("=" * 60)
+    print("="*60)
     print("✓ Pipeline compiled successfully!")
-    print("=" * 60)
-    print("Output file: monai_pipeline.yaml")
-    print("\nNext steps:")
-    print("1. Upload monai_pipeline.yaml to Kubeflow UI")
-    print("2. Create a new run")
-    print("3. Monitor the pipeline execution")
-    print("=" * 60)
+    print("="*60)
+    print("Output: monai_pipeline.yaml")
+    print("\nDefault parameters:")
+    print("  - epochs: 3")
+    print("  - batch_size: 32")
+    print("\nYou can change these in Kubeflow UI when creating a run.")
+    print("="*60)
