@@ -81,7 +81,7 @@ def visualize_patient(ct_path, gt_path, pred_path, output_path):
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"  ✓ Saved: {output_path}")
+    print(f"  [OK] Saved: {output_path}")
     plt.close()
 
 
@@ -134,7 +134,7 @@ def create_summary_plot(results_json_path, output_path):
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"  ✓ Saved: {output_path}")
+    print(f"  [OK] Saved: {output_path}")
     plt.close()
 
 
@@ -150,7 +150,7 @@ def main():
     # Check if test results exist
     results_file = Path("./test_results.json")
     if not results_file.exists():
-        print("\n✗ Error: test_results.json not found!")
+        print("\n[ERROR] Error: test_results.json not found!")
         print("Please run test script first:")
         print("  python demo/test_lungmask.py")
         return
@@ -165,7 +165,16 @@ def main():
     # Paths
     data_dir = Path("./sample-data/Task06_Lung")
     images_dir = data_dir / "imagesTr"
-    labels_dir = data_dir / "labelsTr"
+
+    # Use realistic GT if available
+    labels_dir_realistic = data_dir / "labelsTr_realistic"
+    if labels_dir_realistic.exists():
+        labels_dir = labels_dir_realistic
+        print("[INFO] Using realistic ground truth for visualization")
+    else:
+        labels_dir = data_dir / "labelsTr"
+        print("[WARNING] Using original cancer labels")
+
     pred_dir = Path("./sample-data/predictions")
 
     # Create output directory
@@ -177,20 +186,24 @@ def main():
     for result in results:
         patient_id = result['patient']
 
+        # Patient ID from test results (e.g., "lung_001.nii")
+        # CT and GT use: lung_001.nii.gz
+        # Prediction uses: lung_001.nii_pred.nii.gz (includes .nii in middle)
+
         # Paths
-        ct_path = images_dir / f"{patient_id}.nii.gz"
-        gt_path = labels_dir / f"{patient_id}.nii.gz"
-        pred_path = pred_dir / f"{patient_id}_pred.nii.gz"
+        ct_path = images_dir / f"{patient_id}.gz"  # lung_001.nii -> lung_001.nii.gz
+        gt_path = labels_dir / f"{patient_id}.gz"
+        pred_path = pred_dir / f"{patient_id}_pred.nii.gz"  # lung_001.nii -> lung_001.nii_pred.nii.gz
 
         # Check if all files exist
         if not ct_path.exists():
-            print(f"  ⚠ Warning: {ct_path.name} not found, skipping...")
+            print(f"  [WARNING] {ct_path.name} not found, skipping...")
             continue
         if not gt_path.exists():
-            print(f"  ⚠ Warning: {gt_path.name} not found, skipping...")
+            print(f"  [WARNING] {gt_path.name} not found, skipping...")
             continue
         if not pred_path.exists():
-            print(f"  ⚠ Warning: {pred_path.name} not found, skipping...")
+            print(f"  [WARNING] {pred_path.name} not found, skipping...")
             continue
 
         # Output path
@@ -202,7 +215,7 @@ def main():
         try:
             visualize_patient(ct_path, gt_path, pred_path, output_path)
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  [ERROR] Error: {e}")
             continue
 
     # Create summary plot
@@ -211,13 +224,13 @@ def main():
     try:
         create_summary_plot(results_file, summary_path)
     except Exception as e:
-        print(f"  ✗ Error creating summary plot: {e}")
+        print(f"  [ERROR] Error creating summary plot: {e}")
 
     # Summary
     print("\n" + "="*60)
     print("COMPLETE")
     print("="*60)
-    print(f"✓ Visualizations saved to: {output_dir}/")
+    print(f"[OK] Visualizations saved to: {output_dir}/")
     print(f"\nGenerated files:")
     print(f"  - Individual comparisons: {len(results)} files")
     print(f"  - Summary plot: summary_dice_scores.png")
@@ -226,11 +239,11 @@ def main():
     print(f"\nAverage Dice Score: {avg_dice:.4f}")
 
     if avg_dice >= 0.95:
-        print("✓ Excellent performance! Model ready for production.")
+        print("[OK] Excellent performance! Model ready for production.")
     elif avg_dice >= 0.90:
-        print("✓ Good performance! Model works well.")
+        print("[OK] Good performance! Model works well.")
     else:
-        print("⚠ Consider fine-tuning for better accuracy.")
+        print("[WARNING] Consider fine-tuning for better accuracy.")
 
     print("\nNext step:")
     print("  Deploy service: python deployment/serve.py")
