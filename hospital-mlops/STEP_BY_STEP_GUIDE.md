@@ -42,6 +42,9 @@ venv\Scripts\activate
 # Install core packages
 pip install -r requirements.txt
 
+# Install additional required packages
+pip install huggingface_hub
+
 # Install LungMask
 pip install git+https://github.com/JoHof/lungmask
 
@@ -56,6 +59,8 @@ MONAI 1.3.0
 LungMask installed
 ```
 
+**Note**: Package `huggingface_hub` cần thiết để download MONAI models từ Hugging Face
+
 ---
 
 ## Bước 2: Download Pretrained Model (20 phút)
@@ -63,9 +68,9 @@ LungMask installed
 ### 2.1 Download MONAI Whole Body CT
 
 ```bash
-cd pretrained-models
+cd hospital-mlops/pretrained-models
 
-# Download (500MB, ~10 phút với internet tốt)
+# Download (~144 MB, ~10 giây với internet tốt)
 python -m monai.bundle download "wholeBody_ct_segmentation" --bundle_dir ./
 ```
 
@@ -75,19 +80,26 @@ pretrained-models/
 └── wholeBody_ct_segmentation/
     ├── configs/
     │   ├── inference.json
-    │   └── metadata.json
+    │   ├── metadata.json
+    │   ├── train.json
+    │   └── evaluate.json
     ├── models/
-    │   └── model.pt          # 500 MB
-    └── docs/
+    │   ├── model.pt          # 72 MB (high resolution)
+    │   └── model_lowres.pt   # 72 MB (low resolution)
+    ├── docs/
+    │   └── README.md
+    └── LICENSE
 ```
 
-### 2.2 Download LungMask (đã tự động install)
+**Total**: ~144 MB cho 2 model versions
 
-LungMask weights tự động download khi chạy lần đầu:
-```python
-from lungmask import mask
-# Lần đầu sẽ download ~30MB vào ~/.cache/torch/
-```
+### 2.2 Download LungMask (tự động khi chạy lần đầu)
+
+LungMask weights tự động download khi chạy script test lần đầu tiên.
+
+Không cần download thủ công - sẽ tự động tải khi bạn chạy `test_lungmask.py` ở Bước 4.
+
+Weights (~30MB) sẽ được lưu vào `~/.cache/torch/hub/`
 
 ### 2.3 (Optional) Download COVID-19 Model
 
@@ -99,88 +111,107 @@ python -m monai.bundle download "covid19_lung_ct_segmentation" --bundle_dir ./
 
 ## Bước 3: Tải Sample Data - Giả lập Data Bệnh viện (30 phút)
 
-### 3.1 Download Public Medical Dataset
+### 3.1 Download Medical Decathlon Dataset
 
-Sử dụng **Medical Segmentation Decathlon** - dataset public cho CT:
+Sử dụng **Medical Segmentation Decathlon** - dataset public cho CT lung:
 
-```bash
-# Tạo folder data
-mkdir -p ../demo/sample-data
-cd ../demo/sample-data
+**Option 1: Dùng MONAI API (Khuyến nghị)**
 
-# Download Task06_Lung (CT lung)
-# Link: http://medicaldecathlon.com/
-wget https://msd-for-monai.s3-us-west-2.amazonaws.com/Task06_Lung.tar
-tar -xf Task06_Lung.tar
-
-# Kết quả:
-# Task06_Lung/
-# ├── imagesTr/        # Training images (64 cases)
-# │   ├── lung_001.nii.gz
-# │   ├── lung_002.nii.gz
-# │   └── ...
-# ├── labelsTr/        # Training labels
-# │   ├── lung_001.nii.gz
-# │   └── ...
-# └── dataset.json
-```
-
-**Note**: Nếu link không hoạt động, dùng MONAI API:
+Tạo file `hospital-mlops/demo/download_lung_data.py`:
 
 ```python
-# download_lung_data.py
+#!/usr/bin/env python
+"""Download Medical Decathlon Task06_Lung dataset"""
 from monai.apps import DecathlonDataset
+from pathlib import Path
 
-# Download Task06_Lung
+# Tạo folder
+data_dir = Path("./sample-data")
+data_dir.mkdir(parents=True, exist_ok=True)
+
+print("Downloading Medical Decathlon Task06_Lung...")
+print("Size: ~2 GB, time: ~5-10 phút")
+
+# Download Task06_Lung (63 CT scans)
 dataset = DecathlonDataset(
-    root_dir="./sample-data",
+    root_dir=str(data_dir),
     task="Task06_Lung",
     section="training",
     download=True,
     num_workers=4
 )
 
-print(f"Downloaded {len(dataset)} cases")
+print(f"\n✓ Downloaded {len(dataset)} cases")
+print(f"✓ Location: {data_dir / 'Task06_Lung'}")
 ```
 
 Chạy:
 ```bash
-cd ../demo
+cd hospital-mlops/demo
 python download_lung_data.py
 ```
 
-### 3.2 Chuẩn bị Test Cases
+**Option 2: Download trực tiếp (nếu Option 1 lỗi)**
 
 ```bash
-# Chọn 5 cases để test (giả lập 5 bệnh nhân mới)
-mkdir test-cases
-cp sample-data/Task06_Lung/imagesTr/lung_001.nii.gz test-cases/patient_001_image.nii.gz
-cp sample-data/Task06_Lung/labelsTr/lung_001.nii.gz test-cases/patient_001_label.nii.gz
+cd hospital-mlops/demo
+mkdir -p sample-data
+cd sample-data
 
-cp sample-data/Task06_Lung/imagesTr/lung_002.nii.gz test-cases/patient_002_image.nii.gz
-cp sample-data/Task06_Lung/labelsTr/lung_002.nii.gz test-cases/patient_002_label.nii.gz
-
-cp sample-data/Task06_Lung/imagesTr/lung_003.nii.gz test-cases/patient_003_image.nii.gz
-cp sample-data/Task06_Lung/labelsTr/lung_003.nii.gz test-cases/patient_003_label.nii.gz
-
-cp sample-data/Task06_Lung/imagesTr/lung_004.nii.gz test-cases/patient_004_image.nii.gz
-cp sample-data/Task06_Lung/labelsTr/lung_004.nii.gz test-cases/patient_004_label.nii.gz
-
-cp sample-data/Task06_Lung/imagesTr/lung_005.nii.gz test-cases/patient_005_image.nii.gz
-cp sample-data/Task06_Lung/labelsTr/lung_005.nii.gz test-cases/patient_005_label.nii.gz
+# Download Task06_Lung (~2 GB)
+wget https://msd-for-monai.s3-us-west-2.amazonaws.com/Task06_Lung.tar
+tar -xf Task06_Lung.tar
+rm Task06_Lung.tar
 ```
 
-Kết quả:
+**Kết quả**:
 ```
-demo/
-├── sample-data/              # Full dataset (64 cases)
-└── test-cases/               # Test cases (5 bệnh nhân)
-    ├── patient_001_image.nii.gz
-    ├── patient_001_label.nii.gz
-    ├── patient_002_image.nii.gz
-    ├── patient_002_label.nii.gz
-    └── ...
+demo/sample-data/
+└── Task06_Lung/
+    ├── imagesTr/        # 63 CT scans
+    │   ├── lung_001.nii.gz
+    │   ├── lung_003.nii.gz
+    │   └── ...
+    ├── labelsTr/        # 63 ground truth masks
+    │   ├── lung_001.nii.gz
+    │   └── ...
+    └── dataset.json
 ```
+
+### 3.2 Verify Data Downloaded
+
+**Linux/Mac:**
+```bash
+cd hospital-mlops/demo
+
+# Kiểm tra số lượng CT scans
+ls sample-data/Task06_Lung/imagesTr/*.nii.gz | wc -l
+# Output: 63
+
+ls sample-data/Task06_Lung/labelsTr/*.nii.gz | wc -l
+# Output: 63
+```
+
+**Windows PowerShell:**
+```powershell
+cd hospital-mlops/demo
+
+# Kiểm tra số lượng CT scans
+(ls sample-data/Task06_Lung/imagesTr/*.nii.gz).Count
+# Output: 63
+
+(ls sample-data/Task06_Lung/labelsTr/*.nii.gz).Count
+# Output: 63
+
+# Kiểm tra file đầu tiên
+ls sample-data/Task06_Lung/imagesTr/lung_001.nii.gz
+```
+
+**Note**:
+- Dataset có 63 CT scans (không phải 64)
+- Có thể thấy tổng files > 63 do có các file metadata (._lung_*.nii.gz) từ Mac
+
+**Note**: Script `test_lungmask.py` sẽ tự động dùng 5 cases đầu tiên từ folder này để test
 
 ---
 
@@ -191,17 +222,20 @@ demo/
 Chạy script có sẵn:
 
 ```bash
-cd demo
+cd hospital-mlops/demo
 python test_lungmask.py
 ```
 
-**Script này sẽ**:
-- Test LungMask trên 5 bệnh nhân từ Medical Decathlon
-- Tính Dice score để verify accuracy
-- Lưu predictions vào `sample-data/predictions/`
-- Lưu kết quả JSON vào `test_results.json`
+**Lần đầu chạy**: LungMask sẽ tự động download weights (~30MB) vào `~/.cache/torch/hub/`
 
-**Chi tiết code**: Xem `demo/test_lungmask.py`
+**Script này sẽ**:
+- Test LungMask trên 5 cases đầu tiên từ Medical Decathlon
+- Tính Dice score để verify accuracy
+- Tính lung volume và inference time
+- Lưu predictions vào `./sample-data/predictions/`
+- Lưu kết quả JSON vào `./test_results.json`
+
+**Chi tiết code**: Xem `hospital-mlops/demo/test_lungmask.py:145`
 
 **Expected Output**:
 
@@ -342,7 +376,7 @@ python test_monai_wholebody.py
 Chạy script có sẵn:
 
 ```bash
-cd demo
+cd hospital-mlops/demo
 python visualize_results.py
 ```
 
@@ -353,7 +387,7 @@ python visualize_results.py
 - Tạo summary plot với Dice scores
 - Lưu tất cả vào folder `visualizations/`
 
-**Chi tiết code**: Xem `demo/visualize_results.py`
+**Chi tiết code**: Xem `hospital-mlops/demo/visualize_results.py`
 
 **Output**:
 ```bash
@@ -407,11 +441,11 @@ pip install fastapi uvicorn python-multipart
 ### 7.2 Start Service
 
 ```bash
-cd deployment
+cd hospital-mlops/deployment
 python serve.py
 ```
 
-**Chi tiết code**: Xem `deployment/serve.py` và `deployment/README.md`
+**Chi tiết code**: Xem `hospital-mlops/deployment/serve.py` và `hospital-mlops/deployment/README.md`
 
 Server sẽ chạy tại: `http://localhost:8000`
 
@@ -434,7 +468,7 @@ curl http://localhost:8000/health
 **Segment Lung:**
 ```bash
 curl -X POST "http://localhost:8000/segment" \
-  -F "file=@../demo/sample-data/Task06_Lung/imagesTr/lung_001.nii.gz"
+  -F "file=@./sample-data/Task06_Lung/imagesTr/lung_001.nii.gz"
 ```
 
 **Response:**

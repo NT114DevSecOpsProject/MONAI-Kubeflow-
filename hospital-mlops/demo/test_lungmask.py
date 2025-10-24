@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import numpy as np
 import SimpleITK as sitk
-from lungmask import mask
+from lungmask import LMInferer
 import time
 import json
 
@@ -31,9 +31,14 @@ def calculate_dice(pred, ground_truth):
     return dice
 
 
-def test_patient(image_path, label_path, model_name='R231'):
+def test_patient(image_path, label_path, inferer):
     """
     Test LungMask trên 1 patient
+
+    Args:
+        image_path: Path to CT scan
+        label_path: Path to ground truth
+        inferer: LMInferer instance
 
     Returns:
         dict: {
@@ -56,14 +61,13 @@ def test_patient(image_path, label_path, model_name='R231'):
     gt_scan = sitk.ReadImage(str(label_path))
 
     # Apply LungMask
-    print(f"Running LungMask (model={model_name})...")
+    print(f"Running LungMask inference...")
     start_time = time.time()
-    lung_mask = mask.apply(ct_scan, model=model_name)
+    pred_array = inferer.apply(ct_scan)  # Returns numpy array directly
     inference_time = time.time() - start_time
     print(f"  Inference time: {inference_time:.2f} seconds")
 
-    # Convert to numpy
-    pred_array = sitk.GetArrayFromImage(lung_mask)
+    # Convert ground truth to numpy
     gt_array = sitk.GetArrayFromImage(gt_scan)
 
     # Calculate Dice
@@ -83,7 +87,10 @@ def test_patient(image_path, label_path, model_name='R231'):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{image_path.stem}_pred.nii.gz"
-    sitk.WriteImage(lung_mask, str(output_path))
+    # Convert numpy array back to SimpleITK Image
+    pred_image = sitk.GetImageFromArray(pred_array)
+    pred_image.CopyInformation(ct_scan)  # Copy spacing, origin, direction
+    sitk.WriteImage(pred_image, str(output_path))
     print(f"  Saved to: {output_path}")
 
     return {
@@ -121,14 +128,20 @@ def main():
         print(f"Expected: {labels_dir}")
         return
 
-    # Get first 5 patients
-    image_files = sorted(list(images_dir.glob("*.nii.gz")))[:5]
+    # Get first 5 patients (skip Mac metadata files starting with "._")
+    all_files = sorted(list(images_dir.glob("*.nii.gz")))
+    image_files = [f for f in all_files if not f.name.startswith("._")][:5]
 
     if len(image_files) == 0:
         print("\n✗ Error: No .nii.gz files found!")
         return
 
     print(f"\nFound {len(image_files)} patients to test")
+
+    # Initialize LungMask inferer once (reuse for all patients)
+    print("\nInitializing LungMask model (R231)...")
+    inferer = LMInferer(modelname='R231')
+    print("✓ Model loaded\n")
 
     # Test each patient
     results = []
@@ -142,7 +155,7 @@ def main():
             continue
 
         try:
-            result = test_patient(img_path, label_path)
+            result = test_patient(img_path, label_path, inferer)
             results.append(result)
         except Exception as e:
             print(f"\n✗ Error processing {img_path.name}: {e}")
