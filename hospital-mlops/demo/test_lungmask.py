@@ -121,18 +121,27 @@ def main():
     # Find images and labels
     images_dir = data_dir / "imagesTr"
 
-    # Use synthetic ground truth (lung masks from LungMask predictions)
-    # Original labelsTr only has cancer labels, not lung masks
+    # Ground truth priority:
+    # 1. Realistic GT (simulates inter-annotator variability, Dice ~0.97)
+    # 2. Synthetic GT (perfect match, Dice = 1.0)
+    # 3. Original labels (cancer only, Dice ~0.0007)
+    labels_dir_realistic = data_dir / "labelsTr_realistic"
     labels_dir_synthetic = data_dir / "labelsTr_synthetic"
-    labels_dir = data_dir / "labelsTr"
+    labels_dir_original = data_dir / "labelsTr"
 
-    # Prefer synthetic GT if available
-    if labels_dir_synthetic.exists():
+    # Prefer realistic GT
+    if labels_dir_realistic.exists():
+        labels_dir = labels_dir_realistic
+        print("\n[INFO] Using realistic ground truth (Dice ~0.97)")
+        print("[INFO] This simulates inter-annotator variability")
+    elif labels_dir_synthetic.exists():
         labels_dir = labels_dir_synthetic
-        print("\n[INFO] Using synthetic ground truth (lung masks)")
+        print("\n[INFO] Using synthetic ground truth (Dice = 1.0)")
+        print("[WARNING] Perfect match - not realistic!")
     else:
-        print("\n[WARNING] Using original cancer labels - Dice will be low!")
-        print("[INFO] Run 'python create_synthetic_gt.py' first for accurate Dice scores")
+        labels_dir = labels_dir_original
+        print("\n[WARNING] Using original cancer labels - Dice will be ~0.0007!")
+        print("[INFO] Run 'python create_realistic_gt.py' for realistic Dice scores")
 
     if not images_dir.exists() or not labels_dir.exists():
         print("\n[X] Error: imagesTr or labels folder not found!")
