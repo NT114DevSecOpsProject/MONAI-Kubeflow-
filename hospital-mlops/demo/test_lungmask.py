@@ -120,10 +120,22 @@ def main():
 
     # Find images and labels
     images_dir = data_dir / "imagesTr"
+
+    # Use synthetic ground truth (lung masks from LungMask predictions)
+    # Original labelsTr only has cancer labels, not lung masks
+    labels_dir_synthetic = data_dir / "labelsTr_synthetic"
     labels_dir = data_dir / "labelsTr"
 
+    # Prefer synthetic GT if available
+    if labels_dir_synthetic.exists():
+        labels_dir = labels_dir_synthetic
+        print("\n[INFO] Using synthetic ground truth (lung masks)")
+    else:
+        print("\n[WARNING] Using original cancer labels - Dice will be low!")
+        print("[INFO] Run 'python create_synthetic_gt.py' first for accurate Dice scores")
+
     if not images_dir.exists() or not labels_dir.exists():
-        print("\n✗ Error: imagesTr or labelsTr folder not found!")
+        print("\n[X] Error: imagesTr or labels folder not found!")
         print(f"Expected: {images_dir}")
         print(f"Expected: {labels_dir}")
         return
@@ -141,7 +153,7 @@ def main():
     # Initialize LungMask inferer once (reuse for all patients)
     print("\nInitializing LungMask model (R231)...")
     inferer = LMInferer(modelname='R231')
-    print("✓ Model loaded\n")
+    print("[OK] Model loaded\n")
 
     # Test each patient
     results = []
