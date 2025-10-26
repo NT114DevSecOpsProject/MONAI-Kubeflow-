@@ -304,8 +304,8 @@ try:
     axes[2].set_title('Difference (Error Map)', fontsize=14)
     axes[2].axis('off')
 
-    plt.suptitle(f'TEST SET Evaluation - Dice: {dice_scores[0]:.4f} (Unseen Data)',
-                 fontsize=16, fontweight='bold')
+    plt.suptitle(f'Proper Test Set Evaluation - Dice: {dice_scores[0]:.4f}\n(3-Way Split: Never Seen During Training)',
+                 fontsize=14, fontweight='bold')
     plt.tight_layout()
 
     output_file = "test_set_evaluation.png"
