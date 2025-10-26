@@ -283,25 +283,33 @@ try:
     pred = all_predictions[0][0, 0].numpy()
     label = all_labels[0][0, 0].numpy()
 
-    # Get middle slice
-    slice_idx = pred.shape[2] // 2
+    # Find best slice (where spleen has most pixels)
+    spleen_count = np.sum(label, axis=(0, 1))
+    if np.max(spleen_count) > 0:
+        slice_idx = np.argmax(spleen_count)
+    else:
+        slice_idx = pred.shape[2] // 2
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    # Ground truth
-    axes[0].imshow(label[:, :, slice_idx], cmap='viridis')
+    # Ground truth (using gray colormap for better visibility)
+    axes[0].imshow(label[:, :, slice_idx], cmap='gray')
     axes[0].set_title('Ground Truth', fontsize=14)
     axes[0].axis('off')
 
-    # Prediction
-    axes[1].imshow(pred[:, :, slice_idx], cmap='viridis')
+    # Prediction (using gray colormap)
+    axes[1].imshow(pred[:, :, slice_idx], cmap='gray')
     axes[1].set_title('Model Prediction', fontsize=14)
     axes[1].axis('off')
 
-    # Overlay/difference
-    diff = np.abs(label[:, :, slice_idx] - pred[:, :, slice_idx])
-    axes[2].imshow(diff, cmap='hot')
-    axes[2].set_title('Difference (Error Map)', fontsize=14)
+    # Overlay: Green=Correct, Red=FalsePositive, Blue=FalseNegative
+    overlay = np.zeros((pred.shape[0], pred.shape[1], 3))
+    overlay[:, :, 0] = pred[:, :, slice_idx] * (1 - label[:, :, slice_idx])  # Red: FP
+    overlay[:, :, 2] = label[:, :, slice_idx] * (1 - pred[:, :, slice_idx])  # Blue: FN
+    overlay[:, :, 1] = label[:, :, slice_idx] * pred[:, :, slice_idx]        # Green: TP
+
+    axes[2].imshow(overlay)
+    axes[2].set_title('Segmentation Overlay\n(Green=Correct, Red=FP, Blue=FN)', fontsize=12)
     axes[2].axis('off')
 
     plt.suptitle(f'Proper Test Set Evaluation - Dice: {dice_scores[0]:.4f}\n(3-Way Split: Never Seen During Training)',
