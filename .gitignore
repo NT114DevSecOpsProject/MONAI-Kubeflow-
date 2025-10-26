@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+monai_env/
+env/
+ENV/
+
+# Large data files
+*.nii.gz
+test_data/
+data/
+
+# Large model files
+models/
+pretrained-models/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# Output files
+*.pth
+*.pt
+
+# Temporary files
+nul
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

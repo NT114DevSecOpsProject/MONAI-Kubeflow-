@@ -1,0 +1,12 @@
+{
+  "model": "spleen_ct_segmentation (pretrained)",
+  "num_samples": 3,
+  "dice_score": 0.9752337336540222,
+  "iou_score": 0.9517529010772705,
+  "per_sample_dice": [
+    0.9659785032272339,
+    0.9742652773857117,
+    0.9752337336540222
+  ],
+  "quality": "EXCELLENT"
+}
