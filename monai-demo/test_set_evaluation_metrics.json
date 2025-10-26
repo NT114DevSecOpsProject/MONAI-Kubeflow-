@@ -1,0 +1,25 @@
+{
+  "model": "spleen_ct_segmentation (pretrained)",
+  "evaluation_type": "TEST SET (Proper evaluation - unseen data)",
+  "num_samples": 4,
+  "data_split": {
+    "training": "32 CT scans (used for training)",
+    "validation": "5 CT scans (used for tuning)",
+    "test": "4 CT scans (used for evaluation - UNSEEN)"
+  },
+  "dice_score": 0.9584674835205078,
+  "iou_score": 0.9203239679336548,
+  "per_sample_dice": [
+    0.9493551254272461,
+    0.9541670083999634,
+    0.9553234577178955,
+    0.9584674835205078
+  ],
+  "quality": "EXCELLENT",
+  "comparison": {
+    "validation_dice": 0.9752,
+    "test_dice": 0.9584674835205078,
+    "difference": 0.016732516479492143,
+    "overfitting_status": "Normal variance"
+  }
+}
