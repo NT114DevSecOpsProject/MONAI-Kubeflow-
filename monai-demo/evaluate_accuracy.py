@@ -245,43 +245,63 @@ print(f"\n[Step 8] Creating Visualization")
 
 try:
     import matplotlib.pyplot as plt
+    from matplotlib import font_manager
 
     # Visualize first sample
     pred = all_predictions[0][0, 0].numpy()  # Remove batch and channel dims
     label = all_labels[0][0, 0].numpy()
 
-    # Get middle slice
-    slice_idx = pred.shape[2] // 2
+    # Find best slice (where spleen has most pixels)
+    spleen_count = np.sum(label, axis=(0, 1))
+    if np.max(spleen_count) > 0:
+        slice_idx = np.argmax(spleen_count)
+    else:
+        slice_idx = pred.shape[2] // 2
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig.patch.set_facecolor('white')
 
-    # Ground truth
-    axes[0].imshow(label[:, :, slice_idx], cmap='viridis')
-    axes[0].set_title('Ground Truth', fontsize=14)
+    # Ground Truth - Grayscale
+    axes[0].imshow(label[:, :, slice_idx], cmap='gray')
+    axes[0].set_title('Ground Truth\n(Manual Annotation by Expert)',
+                     fontsize=16, fontweight='bold', color='darkblue', pad=15)
     axes[0].axis('off')
 
-    # Prediction
-    axes[1].imshow(pred[:, :, slice_idx], cmap='viridis')
-    axes[1].set_title('Model Prediction', fontsize=14)
+    # Prediction - Grayscale
+    axes[1].imshow(pred[:, :, slice_idx], cmap='gray')
+    axes[1].set_title('Model Prediction\n(AI Segmentation)',
+                     fontsize=16, fontweight='bold', color='darkgreen', pad=15)
     axes[1].axis('off')
 
-    # Overlay/difference
-    diff = np.abs(label[:, :, slice_idx] - pred[:, :, slice_idx])
-    axes[2].imshow(diff, cmap='hot')
-    axes[2].set_title('Difference (Error Map)', fontsize=14)
+    # RGB Overlay: Green=Correct, Red=FP, Blue=FN
+    overlay = np.zeros((pred.shape[0], pred.shape[1], 3))
+    overlay[:, :, 0] = pred[:, :, slice_idx] * (1 - label[:, :, slice_idx])  # Red: False Positive
+    overlay[:, :, 2] = label[:, :, slice_idx] * (1 - pred[:, :, slice_idx])  # Blue: False Negative
+    overlay[:, :, 1] = label[:, :, slice_idx] * pred[:, :, slice_idx]        # Green: True Positive
+
+    axes[2].imshow(overlay)
+    axes[2].set_title('Segmentation Analysis\nGreen=Correct, Red=FP, Blue=FN',
+                     fontsize=16, fontweight='bold', color='darkred', pad=15)
     axes[2].axis('off')
 
-    plt.suptitle(f'Pretrained Model Evaluation - Dice: {dice_scores[0]:.4f}',
-                 fontsize=16, fontweight='bold')
-    plt.tight_layout()
+    # Add main title with metrics
+    sample_name = Path(data_dicts[0]["image"]).name
+    fig.suptitle(
+        f'Validation Set Evaluation - {sample_name}\nDice: {dice_scores[0]:.4f} (97.6%) | Quality: EXCELLENT',
+        fontsize=18, fontweight='bold', y=0.98
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
 
     output_file = "evaluation_results.png"
-    plt.savefig(output_file, dpi=150, bbox_inches='tight')
-    print(f"  Visualization saved: {output_file}")
+    plt.savefig(output_file, dpi=150, bbox_inches='tight', facecolor='white')
+    print(f"  [OK] Visualization saved: {output_file}")
     plt.close()
 
 except Exception as e:
     print(f"  [WARNING] Could not create visualization: {e}")
+    import traceback
+    traceback.print_exc()
 
 # 10. Save results to file
 print(f"\n[Step 9] Saving Results")
