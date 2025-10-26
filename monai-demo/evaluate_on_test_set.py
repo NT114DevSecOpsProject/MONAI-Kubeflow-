@@ -83,32 +83,71 @@ try:
 
     print(f"  Found {len(image_files)} CT scans and {len(label_files)} ground truth labels")
 
-    # 3-way split strategy
-    # Using indices to ensure reproducible split
+    # 3-way split strategy with RANDOM SEED for reproducibility
+    import random
+    random.seed(42)  # Fixed seed for consistent results
+
     total = len(image_files)
+    indices = list(range(total))
+    random.shuffle(indices)
 
-    # Strategy: Use different ranges for each set
-    # Training indices: 0-31 (32 scans)
-    # Validation indices: 32-36 (5 scans) - for tuning
-    # Test indices: 37-40 (4 scans) - for final evaluation
+    # Split: Training (32), Validation (5), Test (4)
+    train_indices = indices[:32]
+    val_indices = indices[32:37]
+    test_indices = indices[37:41]
 
-    train_indices = list(range(0, 32))
-    val_indices = list(range(32, 37))
-    test_indices = list(range(37, 41))
+    # Create mapping
+    train_files = [(image_files[i].name, label_files[i].name) for i in train_indices]
+    val_files = [(image_files[i].name, label_files[i].name) for i in val_indices]
+    test_files = [(image_files[i].name, label_files[i].name) for i in test_indices]
 
     test_dicts = [
         {"image": str(image_files[i]), "label": str(label_files[i])}
         for i in test_indices
     ]
 
-    print(f"\n  Data Split Strategy:")
-    print(f"  - Training set: indices 0-31 (32 scans) - used for training")
-    print(f"  - Validation set: indices 32-36 (5 scans) - used for tuning")
-    print(f"  - Test set: indices 37-40 (4 scans) - USED FOR EVALUATION (UNSEEN)")
+    # Save split mapping to file
+    split_mapping = {
+        "total_samples": total,
+        "training_set": {
+            "count": 32,
+            "files": sorted([f[0] for f in train_files]),
+            "description": "Used for model training"
+        },
+        "validation_set": {
+            "count": 5,
+            "files": sorted([f[0] for f in val_files]),
+            "description": "Used for model tuning (early stopping, hyperparameter)"
+        },
+        "test_set": {
+            "count": 4,
+            "files": sorted([f[0] for f in test_files]),
+            "description": "UNSEEN during training - PROPER EVALUATION"
+        }
+    }
 
-    print(f"\n  Test samples (UNSEEN):")
-    for i, d in enumerate(test_dicts):
-        print(f"    {i+1}. {Path(d['image']).name}")
+    import json
+    with open("data_split_mapping.json", "w") as f:
+        json.dump(split_mapping, f, indent=2)
+
+    print(f"\n[DATA SPLIT DETAILS]")
+    print(f"Source: Medical Segmentation Decathlon - Task09_Spleen")
+    print(f"Total samples: {total}")
+    print(f"Random seed: 42 (reproducible)")
+
+    print(f"\n[TRAINING SET] (32 samples - for training)")
+    for idx, (img, lbl) in enumerate(sorted(train_files), 1):
+        print(f"  {idx:2d}. {img}")
+
+    print(f"\n[VALIDATION SET] (5 samples - for tuning/early stopping)")
+    for idx, (img, lbl) in enumerate(sorted(val_files), 1):
+        print(f"  {idx}. {img}")
+
+    print(f"\n[TEST SET] (4 samples - UNSEEN, for evaluation)")
+    for idx, (img, lbl) in enumerate(sorted(test_files), 1):
+        print(f"  {idx}. {img}")
+
+    print(f"\n[SAVED] data_split_mapping.json - contains complete mapping")
 
 except Exception as e:
     print(f"  [ERROR] Failed to load data: {e}")

@@ -80,18 +80,28 @@ try:
     print(f"  Found {len(image_files)} CT scans")
     print(f"  Found {len(label_files)} ground truth labels")
 
-    # Use a small subset for testing (first 3 images) to save time/memory
-    num_test = min(3, len(image_files))
-    print(f"  Using {num_test} samples for evaluation")
+    # Use SAME random split as evaluate_on_test_set.py
+    import random
+    random.seed(42)
+    total = len(image_files)
+    indices = list(range(total))
+    random.shuffle(indices)
+
+    # Get validation indices (not training, not test)
+    val_indices = indices[32:37]
+
+    # Use first 3 validation samples
+    num_test = min(3, len(val_indices))
+    print(f"  Using {num_test} samples from VALIDATION SET for evaluation")
 
     data_dicts = [
-        {"image": str(image_files[i]), "label": str(label_files[i])}
+        {"image": str(image_files[val_indices[i]]), "label": str(label_files[val_indices[i]])}
         for i in range(num_test)
     ]
 
-    print(f"\n  Test samples:")
+    print(f"\n[VALIDATION SET] (used during training tuning - may be optimistic):")
     for i, d in enumerate(data_dicts):
-        print(f"    {i+1}. {Path(d['image']).name}")
+        print(f"  {i+1}. {Path(d['image']).name}")
 
 except Exception as e:
     print(f"  [ERROR] Failed to load data: {e}")
