@@ -1,0 +1,555 @@
+pipeline_spec:
+  components:
+    comp-inference-component:
+      executorLabel: exec-inference-component
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-inference-component-2:
+      executorLabel: exec-inference-component-2
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-inference-component-3:
+      executorLabel: exec-inference-component-3
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-inference-component-4:
+      executorLabel: exec-inference-component-4
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-load-data-component:
+      executorLabel: exec-load-data-component
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-load-data-component-2:
+      executorLabel: exec-load-data-component-2
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-load-data-component-3:
+      executorLabel: exec-load-data-component-3
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-load-data-component-4:
+      executorLabel: exec-load-data-component-4
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-preprocess-component:
+      executorLabel: exec-preprocess-component
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-preprocess-component-2:
+      executorLabel: exec-preprocess-component-2
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-preprocess-component-3:
+      executorLabel: exec-preprocess-component-3
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-preprocess-component-4:
+      executorLabel: exec-preprocess-component-4
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-visualize-component:
+      executorLabel: exec-visualize-component
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-visualize-component-2:
+      executorLabel: exec-visualize-component-2
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-visualize-component-3:
+      executorLabel: exec-visualize-component-3
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+    comp-visualize-component-4:
+      executorLabel: exec-visualize-component-4
+      inputDefinitions:
+        parameters:
+          patient_id:
+            parameterType: STRING
+  deploymentSpec:
+    executors:
+      exec-inference-component:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/inference.py
+          image: 'spleen-pipeline:v1'
+      exec-inference-component-2:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/inference.py
+          image: 'spleen-pipeline:v1'
+      exec-inference-component-3:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/inference.py
+          image: 'spleen-pipeline:v1'
+      exec-inference-component-4:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/inference.py
+          image: 'spleen-pipeline:v1'
+      exec-load-data-component:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/load_data.py
+          image: 'spleen-pipeline:v1'
+      exec-load-data-component-2:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/load_data.py
+          image: 'spleen-pipeline:v1'
+      exec-load-data-component-3:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/load_data.py
+          image: 'spleen-pipeline:v1'
+      exec-load-data-component-4:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/load_data.py
+          image: 'spleen-pipeline:v1'
+      exec-preprocess-component:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/preprocess.py
+          image: 'spleen-pipeline:v1'
+      exec-preprocess-component-2:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/preprocess.py
+          image: 'spleen-pipeline:v1'
+      exec-preprocess-component-3:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/preprocess.py
+          image: 'spleen-pipeline:v1'
+      exec-preprocess-component-4:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/preprocess.py
+          image: 'spleen-pipeline:v1'
+      exec-visualize-component:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/visualize.py
+          image: 'spleen-pipeline:v1'
+      exec-visualize-component-2:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/visualize.py
+          image: 'spleen-pipeline:v1'
+      exec-visualize-component-3:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/visualize.py
+          image: 'spleen-pipeline:v1'
+      exec-visualize-component-4:
+        container:
+          args:
+            - '{{$.inputs.parameters[''patient_id'']}}'
+          command:
+            - python
+            - /app/components/visualize.py
+          image: 'spleen-pipeline:v1'
+  pipelineInfo:
+    description: >-
+      Spleen CT segmentation running 4 patients in PARALLEL: load_data ->
+      preprocess -> inference -> visualize
+    name: spleen-segmentation-pipeline-parallel
+  root:
+    dag:
+      tasks:
+        inference-component:
+          cachingOptions: {}
+          componentRef:
+            name: comp-inference-component
+          dependentTasks:
+            - preprocess-component
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_12
+          taskInfo:
+            name: inference-component
+        inference-component-2:
+          cachingOptions: {}
+          componentRef:
+            name: comp-inference-component-2
+          dependentTasks:
+            - preprocess-component-2
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_19
+          taskInfo:
+            name: inference-component-2
+        inference-component-3:
+          cachingOptions: {}
+          componentRef:
+            name: comp-inference-component-3
+          dependentTasks:
+            - preprocess-component-3
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_29
+          taskInfo:
+            name: inference-component-3
+        inference-component-4:
+          cachingOptions: {}
+          componentRef:
+            name: comp-inference-component-4
+          dependentTasks:
+            - preprocess-component-4
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_9
+          taskInfo:
+            name: inference-component-4
+        load-data-component:
+          cachingOptions: {}
+          componentRef:
+            name: comp-load-data-component
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_12
+          taskInfo:
+            name: load-data-component
+        load-data-component-2:
+          cachingOptions: {}
+          componentRef:
+            name: comp-load-data-component-2
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_19
+          taskInfo:
+            name: load-data-component-2
+        load-data-component-3:
+          cachingOptions: {}
+          componentRef:
+            name: comp-load-data-component-3
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_29
+          taskInfo:
+            name: load-data-component-3
+        load-data-component-4:
+          cachingOptions: {}
+          componentRef:
+            name: comp-load-data-component-4
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_9
+          taskInfo:
+            name: load-data-component-4
+        preprocess-component:
+          cachingOptions: {}
+          componentRef:
+            name: comp-preprocess-component
+          dependentTasks:
+            - load-data-component
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_12
+          taskInfo:
+            name: preprocess-component
+        preprocess-component-2:
+          cachingOptions: {}
+          componentRef:
+            name: comp-preprocess-component-2
+          dependentTasks:
+            - load-data-component-2
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_19
+          taskInfo:
+            name: preprocess-component-2
+        preprocess-component-3:
+          cachingOptions: {}
+          componentRef:
+            name: comp-preprocess-component-3
+          dependentTasks:
+            - load-data-component-3
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_29
+          taskInfo:
+            name: preprocess-component-3
+        preprocess-component-4:
+          cachingOptions: {}
+          componentRef:
+            name: comp-preprocess-component-4
+          dependentTasks:
+            - load-data-component-4
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_9
+          taskInfo:
+            name: preprocess-component-4
+        visualize-component:
+          cachingOptions: {}
+          componentRef:
+            name: comp-visualize-component
+          dependentTasks:
+            - inference-component
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_12
+          taskInfo:
+            name: visualize-component
+        visualize-component-2:
+          cachingOptions: {}
+          componentRef:
+            name: comp-visualize-component-2
+          dependentTasks:
+            - inference-component-2
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_19
+          taskInfo:
+            name: visualize-component-2
+        visualize-component-3:
+          cachingOptions: {}
+          componentRef:
+            name: comp-visualize-component-3
+          dependentTasks:
+            - inference-component-3
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_29
+          taskInfo:
+            name: visualize-component-3
+        visualize-component-4:
+          cachingOptions: {}
+          componentRef:
+            name: comp-visualize-component-4
+          dependentTasks:
+            - inference-component-4
+          inputs:
+            parameters:
+              patient_id:
+                runtimeValue:
+                  constant: spleen_9
+          taskInfo:
+            name: visualize-component-4
+  schemaVersion: 2.1.0
+  sdkVersion: kfp-2.14.6
+platform_spec:
+  platforms:
+    kubernetes:
+      deploymentSpec:
+        executors:
+          exec-inference-component:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-inference-component-2:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-inference-component-3:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-inference-component-4:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-load-data-component:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-load-data-component-2:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-load-data-component-3:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-load-data-component-4:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-preprocess-component:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-preprocess-component-2:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-preprocess-component-3:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-preprocess-component-4:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-visualize-component:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-visualize-component-2:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-visualize-component-3:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
+          exec-visualize-component-4:
+            pvcMount:
+              - constant: data-pvc
+                mountPath: /mnt/data
+                pvcNameParameter:
+                  runtimeValue:
+                    constant: data-pvc
