@@ -1,105 +1,129 @@
 """
-Visualize Component: Create 3-view overlay images of CT scan + segmentation
-Input: /mnt/data/inputs/week_current/spleen_XX/imaging.nii.gz
+Visualize Component: Create 3-panel overlay images (CT | Probability | Mask)
+Input: /mnt/data/inputs/week_current/spleen_XX/preprocessed.pt
+       /mnt/data/outputs/week_current/spleen_XX/probability.npy
        /mnt/data/outputs/week_current/spleen_XX/segmentation.nii.gz
-Output: /mnt/data/outputs/week_current/spleen_XX/{axial,coronal,sagittal}.png
+Output: /mnt/data/outputs/week_current/spleen_XX/visualization.png
 """
 
 import sys
 import numpy as np
-import nibabel as nib
+import torch
 import matplotlib.pyplot as plt
 from pathlib import Path
 
 def visualize(patient_id: str):
-    """Create 3-view visualizations"""
+    """Create 3-panel visualization"""
     print(f"\n{'='*60}")
     print(f"VISUALIZE: {patient_id}")
     print(f"{'='*60}")
 
     try:
         # Paths
-        input_file = Path(f"/mnt/data/inputs/week_current/{patient_id}/imaging.nii.gz")
+        preprocessed_file = Path(f"/mnt/data/inputs/week_current/{patient_id}/preprocessed.pt")
+        prob_file = Path(f"/mnt/data/outputs/week_current/{patient_id}/probability.npy")
         mask_file = Path(f"/mnt/data/outputs/week_current/{patient_id}/segmentation.nii.gz")
-        output_dir = Path(f"/mnt/data/outputs/week_current/{patient_id}")
+        output_file = Path(f"/mnt/data/outputs/week_current/{patient_id}/visualization.png")
 
-        print(f"CT Input: {input_file}")
-        print(f"Mask Input: {mask_file}")
-        print(f"Output Dir: {output_dir}")
+        print(f"Preprocessed: {preprocessed_file}")
+        print(f"Probability: {prob_file}")
+        print(f"Mask: {mask_file}")
+        print(f"Output: {output_file}")
 
-        if not input_file.exists():
-            raise FileNotFoundError(f"CT scan not found: {input_file}")
-
+        # Verify files
+        if not preprocessed_file.exists():
+            raise FileNotFoundError(f"Preprocessed file not found: {preprocessed_file}")
+        if not prob_file.exists():
+            raise FileNotFoundError(f"Probability file not found: {prob_file}")
         if not mask_file.exists():
-            raise FileNotFoundError(f"Segmentation mask not found: {mask_file}")
+            raise FileNotFoundError(f"Mask file not found: {mask_file}")
 
-        # Load images
-        print("[Step 1/4] Loading CT scan and mask...")
-        ct_img = nib.load(input_file)
-        ct_data = ct_img.get_fdata()
+        # Load data
+        print("[Step 1/4] Loading data...")
+        ct_tensor = torch.load(preprocessed_file, map_location='cpu').numpy()
+        if ct_tensor.ndim == 4:  # (1, H, W, D)
+            ct_tensor = ct_tensor[0]
 
-        mask_img = nib.load(mask_file)
-        mask_data = mask_img.get_fdata()
+        probs = np.load(prob_file)
 
-        print(f"  CT shape: {ct_data.shape}")
+        import nibabel as nib
+        mask_data = nib.load(mask_file).get_fdata()
+
+        print(f"  CT shape: {ct_tensor.shape}")
+        print(f"  Prob shape: {probs.shape}")
         print(f"  Mask shape: {mask_data.shape}")
 
-        # Normalize CT for display
-        ct_data = np.clip(ct_data, -175, 250)
-        ct_data = (ct_data - ct_data.min()) / (ct_data.max() - ct_data.min() + 1e-8)
+        # Find best slice (where spleen has most pixels)
+        print("[Step 2/4] Finding best slice...")
+        spleen_count = np.sum(mask_data, axis=(0, 1))
+        if np.max(spleen_count) > 0:
+            slice_idx = np.argmax(spleen_count)
+        else:
+            slice_idx = ct_tensor.shape[2] // 2
 
-        # Find center slices with spleen
-        print("[Step 2/4] Finding best slices...")
-        spleen_mask = mask_data > 0.5
+        print(f"  Best slice: {slice_idx}/{ct_tensor.shape[2]}")
 
-        # Axial (Z-axis)
-        z_count = np.sum(spleen_mask, axis=(0, 1))
-        z_slice = np.argmax(z_count) if z_count.max() > 0 else ct_data.shape[2] // 2
+        # Create 3-panel visualization
+        print("[Step 3/4] Creating visualization...")
 
-        # Coronal (Y-axis)
-        y_count = np.sum(spleen_mask, axis=(0, 2))
-        y_slice = np.argmax(y_count) if y_count.max() > 0 else ct_data.shape[1] // 2
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        fig.suptitle(f'MONAI Spleen Segmentation - Kubeflow Pipeline\n{patient_id}',
+                     fontsize=14, fontweight='bold')
 
-        # Sagittal (X-axis)
-        x_count = np.sum(spleen_mask, axis=(1, 2))
-        x_slice = np.argmax(x_count) if x_count.max() > 0 else ct_data.shape[0] // 2
+        # Panel 1: Input CT Scan
+        ax = axes[0]
+        ax.imshow(ct_tensor[:, :, slice_idx], cmap='gray')
+        ax.set_title(f'Input CT Scan\n{patient_id}.nii.gz\n(slice {slice_idx}/{ct_tensor.shape[2]})',
+                     fontsize=11, fontweight='bold')
+        ax.axis('off')
 
-        print(f"  Axial slice: {z_slice}/{ct_data.shape[2]}")
-        print(f"  Coronal slice: {y_slice}/{ct_data.shape[1]}")
-        print(f"  Sagittal slice: {x_slice}/{ct_data.shape[0]}")
+        # Panel 2: Spleen Probability Map
+        ax = axes[1]
+        prob_slice = probs[:, :, slice_idx]
+        im = ax.imshow(prob_slice, cmap='hot', vmin=0, vmax=1)
+        ax.set_title(f'Spleen Probability Map\n(avg: {np.mean(prob_slice):.3f})',
+                     fontsize=11, fontweight='bold')
+        ax.axis('off')
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('Probability')
 
-        # Create visualizations
-        print("[Step 3/4] Creating visualizations...")
+        # Panel 3: Predicted Mask (Yellow on Purple)
+        ax = axes[2]
+        mask_display = np.zeros((mask_data.shape[0], mask_data.shape[1], 3))
+        pred_slice = mask_data[:, :, slice_idx]
 
-        views = [
-            ("axial", ct_data[:, :, z_slice], mask_data[:, :, z_slice], f"Axial (Z={z_slice})"),
-            ("coronal", ct_data[:, y_slice, :], mask_data[:, y_slice, :], f"Coronal (Y={y_slice})"),
-            ("sagittal", ct_data[x_slice, :, :], mask_data[x_slice, :, :], f"Sagittal (X={x_slice})")
+        spleen_pixels = pred_slice > 0.5
+        background_pixels = ~spleen_pixels
+
+        # Yellow = Spleen, Purple = Background
+        mask_display[spleen_pixels, 0] = 1.0    # Red
+        mask_display[spleen_pixels, 1] = 1.0    # Green (Red+Green=Yellow)
+        mask_display[background_pixels, 0] = 0.6  # Purple
+        mask_display[background_pixels, 2] = 1.0
+
+        ax.imshow(mask_display)
+        spleen_volume = np.sum(mask_data) / mask_data.size * 100
+        ax.set_title(f'Predicted Mask\n({spleen_volume:.2f}% spleen in volume)',
+                     fontsize=11, fontweight='bold')
+        ax.axis('off')
+
+        # Add legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='yellow', label='Spleen (Predicted)'),
+            Patch(facecolor='purple', label='Background')
         ]
+        ax.legend(handles=legend_elements, loc='upper right', fontsize=9)
 
-        for view_name, ct_slice, mask_slice, title in views:
-            fig, ax = plt.subplots(figsize=(8, 8))
+        plt.tight_layout()
 
-            # Show CT scan
-            ax.imshow(ct_slice.T, cmap='gray', origin='lower')
+        # Save
+        print("[Step 4/4] Saving visualization...")
+        plt.savefig(output_file, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close()
 
-            # Overlay segmentation mask in yellow with transparency
-            mask_overlay = np.ma.masked_where(mask_slice.T < 0.5, mask_slice.T)
-            ax.imshow(mask_overlay, cmap='autumn', alpha=0.5, origin='lower')
-
-            ax.set_title(f'{patient_id} - Spleen Segmentation\n{title}',
-                        fontsize=14, fontweight='bold')
-            ax.axis('off')
-
-            # Save
-            output_file = output_dir / f"{view_name}.png"
-            plt.savefig(output_file, dpi=150, bbox_inches='tight', facecolor='white')
-            plt.close()
-
-            print(f"  Saved: {view_name}.png")
-
-        print("[Step 4/4] Complete!")
         print(f"[OK] Visualization complete!")
+        print(f"[OK] Saved: {output_file}")
         return 0
 
     except Exception as e:

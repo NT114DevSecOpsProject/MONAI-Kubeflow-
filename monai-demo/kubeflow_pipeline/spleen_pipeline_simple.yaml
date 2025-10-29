@@ -1,0 +1,197 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: spleen-segmentation-parallel-
+  namespace: kubeflow
+spec:
+  serviceAccountName: pipeline-runner
+  entrypoint: main
+  volumes:
+    - name: data-volume
+      persistentVolumeClaim:
+        claimName: data-pvc
+
+  templates:
+    - name: main
+      dag:
+        tasks:
+          # Patient 1: spleen_12
+          - name: load-spleen-12
+            template: load-data
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_12"
+
+          - name: preprocess-spleen-12
+            template: preprocess
+            dependencies: [load-spleen-12]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_12"
+
+          - name: inference-spleen-12
+            template: inference
+            dependencies: [preprocess-spleen-12]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_12"
+
+          - name: visualize-spleen-12
+            template: visualize
+            dependencies: [inference-spleen-12]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_12"
+
+          # Patient 2: spleen_19
+          - name: load-spleen-19
+            template: load-data
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_19"
+
+          - name: preprocess-spleen-19
+            template: preprocess
+            dependencies: [load-spleen-19]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_19"
+
+          - name: inference-spleen-19
+            template: inference
+            dependencies: [preprocess-spleen-19]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_19"
+
+          - name: visualize-spleen-19
+            template: visualize
+            dependencies: [inference-spleen-19]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_19"
+
+          # Patient 3: spleen_29
+          - name: load-spleen-29
+            template: load-data
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_29"
+
+          - name: preprocess-spleen-29
+            template: preprocess
+            dependencies: [load-spleen-29]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_29"
+
+          - name: inference-spleen-29
+            template: inference
+            dependencies: [preprocess-spleen-29]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_29"
+
+          - name: visualize-spleen-29
+            template: visualize
+            dependencies: [inference-spleen-29]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_29"
+
+          # Patient 4: spleen_9
+          - name: load-spleen-9
+            template: load-data
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_9"
+
+          - name: preprocess-spleen-9
+            template: preprocess
+            dependencies: [load-spleen-9]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_9"
+
+          - name: inference-spleen-9
+            template: inference
+            dependencies: [preprocess-spleen-9]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_9"
+
+          - name: visualize-spleen-9
+            template: visualize
+            dependencies: [inference-spleen-9]
+            arguments:
+              parameters:
+                - name: patient-id
+                  value: "spleen_9"
+
+    # Component Templates
+    - name: load-data
+      inputs:
+        parameters:
+          - name: patient-id
+      container:
+        image: spleen-pipeline:v1
+        imagePullPolicy: Never
+        command: [python, /app/components/load_data.py]
+        args: ["{{inputs.parameters.patient-id}}"]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /mnt/data
+
+    - name: preprocess
+      inputs:
+        parameters:
+          - name: patient-id
+      container:
+        image: spleen-pipeline:v1
+        imagePullPolicy: Never
+        command: [python, /app/components/preprocess.py]
+        args: ["{{inputs.parameters.patient-id}}"]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /mnt/data
+
+    - name: inference
+      inputs:
+        parameters:
+          - name: patient-id
+      container:
+        image: spleen-pipeline:v1
+        imagePullPolicy: Never
+        command: [python, /app/components/inference.py]
+        args: ["{{inputs.parameters.patient-id}}"]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /mnt/data
+
+    - name: visualize
+      inputs:
+        parameters:
+          - name: patient-id
+      container:
+        image: spleen-pipeline:v1
+        imagePullPolicy: Never
+        command: [python, /app/components/visualize.py]
+        args: ["{{inputs.parameters.patient-id}}"]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /mnt/data

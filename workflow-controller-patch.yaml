@@ -1,0 +1,4 @@
+data:
+  executor: |
+    imagePullPolicy: IfNotPresent
+  containerRuntimeExecutor: pns

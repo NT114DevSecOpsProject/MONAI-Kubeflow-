@@ -6,7 +6,6 @@ Output: /mnt/data/outputs/week_current/spleen_XX/segmentation.nii.gz
 
 import sys
 import torch
-import numpy as np
 import nibabel as nib
 from pathlib import Path
 
@@ -88,16 +87,48 @@ def inference(patient_id: str):
         print(f"  Output shape: {pred_mask.shape}")
         print(f"  Spleen voxels: {pred_mask.sum():,}")
 
-        # Save segmentation mask
-        print("[Step 4/4] Saving outputs...")
-        nifti_img = nib.Nifti1Image(pred_mask, affine=None)
+        # Save as NIfTI
+        print("[Step 4/4] Saving segmentation outputs...")
+
+        # Load original CT to get affine and shape
+        original_ct_path = Path(f"/mnt/data/inputs/week_current/{patient_id}/imaging.nii.gz")
+        if original_ct_path.exists():
+            original_ct = nib.load(original_ct_path)
+            affine = original_ct.affine
+            original_shape = original_ct.shape
+            print(f"  Original CT shape: {original_shape}")
+
+            # Resize both probability and mask to match original CT shape
+            if pred_mask.shape != original_shape:
+                print(f"  Resizing from {pred_mask.shape} to {original_shape}...")
+                from monai.transforms import Resize
+
+                # Resize probability map (MONAI expects [C, H, W, D] format)
+                resize_transform_trilinear = Resize(spatial_size=original_shape, mode='trilinear')
+                probs_tensor = torch.from_numpy(probs).unsqueeze(0).float()  # Add channel dim: [1, H, W, D]
+                probs_resized = resize_transform_trilinear(probs_tensor)[0].numpy()  # Remove channel dim
+                probs = probs_resized
+
+                # Resize binary mask
+                resize_transform_nearest = Resize(spatial_size=original_shape, mode='nearest')
+                pred_mask_tensor = torch.from_numpy(pred_mask).unsqueeze(0).float()  # [1, H, W, D]
+                pred_mask_resized = resize_transform_nearest(pred_mask_tensor)[0].numpy().astype('uint8')
+                pred_mask = pred_mask_resized
+                print(f"  Resized shape: {pred_mask.shape}")
+        else:
+            print(f"  Warning: Original CT not found, using identity affine")
+            affine = None
+
+        # Save binary mask
+        nifti_img = nib.Nifti1Image(pred_mask, affine=affine)
         nib.save(nifti_img, output_file)
-        print(f"  Saved mask: {output_file}")
+        print(f"  Saved: segmentation.nii.gz")
 
         # Save probability map for visualization
-        prob_file = output_dir / "probability.npy"
-        np.save(prob_file, probs)
-        print(f"  Saved probabilities: {prob_file}")
+        prob_file = output_dir / "probability.nii.gz"
+        prob_img = nib.Nifti1Image(probs, affine=affine)
+        nib.save(prob_img, prob_file)
+        print(f"  Saved: probability.nii.gz")
 
         print(f"[OK] Inference complete!")
         return 0
